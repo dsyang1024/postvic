@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
-plt.rcParams.update({'font.size': 10})
+plt.rcParams.update({'font.size': 12}) # or any other desired size in points
 from matplotlib.markers import MarkerStyle
 import geopandas as gpd
 import math
@@ -21,11 +21,12 @@ def get_scenarios(scelist0):
     scelist = []
     for i in range(len(scelist0)):
         scelist.append('OUTPUTS_' + scelist0[i])
-
+    scelist = [sce for sce in scelist if 'No' not in sce]
+    print (scelist)
     return scelist
 
 
-def folder_setup(lakefilename, refresher):
+def folder_setup(CONFIG, lakefilename, refresher):
     from shutil import rmtree
     """_summary_
     this function is used to set up the folders for the lake analysis
@@ -38,9 +39,23 @@ def folder_setup(lakefilename, refresher):
         None
     """
     
-    print('\n\n>>> Setting up folders for the analysis for the Grid: '+lakefilename[5:])
+    print('\n\n>>> Setting up folders for the analysis for the Grid: '+lakefilename)
     # make the folders for the lake analysis
     access = 0o777
+    lakefilename = f'{CONFIG.LAKE["prefix"]}_{lakefilename}'
+    if not os.path.exists('./lake_boxplot'):
+        print('    ... Creating folders for lake boxplot')
+        os.mkdir('./lake_boxplot', access)
+    if not os.path.exists('./lake_antpcp_scplot'):
+        print('    ... Creating folders for lake antpcp scplot')
+        os.mkdir('./lake_antpcp_scplot', access)
+    if not os.path.exists('./lake_timeseries'):
+        print('    ... Creating folders for lake timeseries')
+        os.mkdir('./lake_timeseries', access)
+    if not os.path.exists('./lake_hydrology_timeseries'):
+        print('    ... Creating folders for lake hydrology timeseries')
+        os.mkdir('./lake_hydrology_timeseries', access)
+    
     
     if not os.path.exists('./lake_boxplot/'+lakefilename):
         print('    ... Creating folders for lake boxplot')
@@ -105,7 +120,7 @@ def folder_setup(lakefilename, refresher):
 
 
 
-def lake_depth_boxplot(scelist, lakefilename, styear, endyear, yrange=[1.5,3.5]):
+def lake_boxplot(outvar, unit, scelist, lakefilename, styear, endyear, yrange=[0,3]):
     """_summary_
     this function will make a boxplot for the lake depth from each scenario
     it will do the following:
@@ -127,7 +142,7 @@ def lake_depth_boxplot(scelist, lakefilename, styear, endyear, yrange=[1.5,3.5])
         
     """
 
-    print('\n\n>>> Making boxplot for the lake depth from each scenario')
+    print(f'\n\n>>> Making boxplot for the lake {outvar.replace("OUT_","").lower()} from each scenario')
     # make the subplots for the integrated lake depth boxplot
     rowmax = math.ceil(len(scelist)/2)
     fig, axs = plt.subplots(rowmax, 2, figsize=(8, rowmax*2.5), sharex=True, sharey=True)
@@ -144,15 +159,16 @@ def lake_depth_boxplot(scelist, lakefilename, styear, endyear, yrange=[1.5,3.5])
             flines = read_lake(scenario, lakefilename, styear, endyear)
 
             # get the OUT_LAKE_DEPTH values in boxplot according to MONTH
-            flines.boxplot(column=' OUT_LAKE_DEPTH', by='MONTH')
+            flines.boxplot(column=outvar, by='MONTH')
 
             # set the x-axis label as 'Month'
             plt.xlabel('Month')
-            # set the y-axis label as 'Lake Depth (m)'
-            plt.ylabel('Lake Depth (m)')
-            # set the y-axis range default is [1.5,3.5]
-            plt.ylim(yrange)
-            plt.yticks(np.arange(yrange[0], yrange[1], 0.5))
+            # set the y-axis label
+            ylabel = outvar.replace('OUT_','').replace('_', ' ').title() + ' (' + unit + ')'
+            plt.ylabel(ylabel)
+            # if yaxis value is over 1000, use scientific notation
+            if flines[outvar].max() > 1000:
+                plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
 
             # title of the boxplot is the SCE name
             # remove the title of the boxplot and leave the suptitle
@@ -161,16 +177,16 @@ def lake_depth_boxplot(scelist, lakefilename, styear, endyear, yrange=[1.5,3.5])
             plt.tight_layout()
 
             # save the figure as SCE name
-            plt.savefig(os.path.join('./lake_boxplot/'+lakefilename+'/', scenario+'_lake_depth_boxplot.png'), dpi=600)
+            plt.savefig(os.path.join('./lake_boxplot/'+lakefilename+'/', scenario+f'_{outvar.replace("OUT_","").lower()}_boxplot.png'), dpi=600)
             print(f'    ... {scenario} saved')
 
             # assign the graph to the fig plot with the right axs number
-            flines.boxplot(column=' OUT_LAKE_DEPTH', by='MONTH', label=scenario.replace('OUTPUTS_', ''), ax=axs[rows, columns])
+            flines.boxplot(column=outvar, by='MONTH', label=scenario.replace('OUTPUTS_', ''), ax=axs[rows, columns])
             axs[rows, columns].set_title('')
             axs[rows, columns].set_ylabel('')
             axs[rows, columns].set_xlabel('')
-            axs[rows, columns].set_ylim(yrange)
-            axs[rows, columns].set_yticks(np.arange(yrange[0], yrange[1], 0.5))
+            # axs[rows, columns].set_ylim(yrange)
+            # axs[rows, columns].set_yticks(np.arange(yrange[0], yrange[1], 0.5))
             axs[rows, columns].legend()
 
             # increment the xaxs and yaxs
@@ -182,14 +198,14 @@ def lake_depth_boxplot(scelist, lakefilename, styear, endyear, yrange=[1.5,3.5])
             # reset the figure
             plt.close()
         else:
-            print(f'    ... {scenario} lake depth file does not exist')
+            print(f'    ... {scenario} lake file does not exist')
             pass
 
     fig.texts = []
-    fig.supylabel('Lake Depth (m)')
+    fig.supylabel(outvar.replace('OUT_','').replace('_', ' ').title()+' ('+unit+')')
     fig.supxlabel('Month')
     fig.tight_layout()
-    fig.savefig(os.path.join('./lake_boxplot/'+lakefilename+'/', 'Entire_lake_depth_boxplot.png'), dpi=600)
+    fig.savefig(os.path.join('./lake_boxplot/'+lakefilename+'/', f'Entire_{outvar.replace("OUT_","").lower()}_boxplot.png'), dpi=600)
     print('    ... Entire Boxplot saved')
     # close the figure
     plt.close(fig)
@@ -200,7 +216,7 @@ def lake_depth_boxplot(scelist, lakefilename, styear, endyear, yrange=[1.5,3.5])
 
 
 
-def lake_depth_scplot(forcing_df, scelist, lakefilename, styear, endyear, antdays=30, yrange=[1.5,3.5]):
+def lake_depth_scplot(forcing_df, scelist, lakefilename, styear, endyear, antdays=30, yrange=[0,3]):
     """_summary_
     this function will make a scatter plot for the lake depth from each scenario
     it will do the following:
@@ -289,7 +305,7 @@ def lake_depth_scplot(forcing_df, scelist, lakefilename, styear, endyear, antday
 
 
 
-def lake_timeseries_plot(forcing_df, scelist, lakefilename, styear, endyear, yrange=[1.5,3.5]):
+def lake_timeseries_plot(CONFIG, forcing_df, scelist, lakefilename, styear, endyear, yrange=[0,3]):
     """_summary_
     this function will make a time series plot for the lake depth from each scenario
     it will do the following:
@@ -324,7 +340,7 @@ def lake_timeseries_plot(forcing_df, scelist, lakefilename, styear, endyear, yra
         forcing_df_year = forcing_df.loc[forcing_df['DATE'].dt.year == year]
         
         axs[0].bar(forcing_df_year['DATE'], forcing_df_year['PRECIP'], color='royalblue', label='Precipitation (mm)')
-        axs[0].set_ylabel('Precipitation (mm)', color='royalblue')
+        axs[0].set_ylabel('Precipitation\n(mm)', color='royalblue')
         axs[0].legend().set_visible(False)
         
         axnum = 1
@@ -343,7 +359,7 @@ def lake_timeseries_plot(forcing_df, scelist, lakefilename, styear, endyear, yra
                     # filter the file for the given year
                     flines_year = flines.loc[flines['DATE'].dt.year == year]
                 
-                    flines_year.plot(x='DATE', y=' OUT_LAKE_DEPTH', color='black', label=scenario.replace('OUTPUTS_', ''), ax=axs[axnum], zorder=2)
+                    flines_year.plot(x='DATE', y='OUT_LAKE_DEPTH', color='black', label=scenario.replace('OUTPUTS_', ''), ax=axs[axnum], zorder=2)
                     # Set x-axis ticks every three months and show year-month format
                     axs[axnum].xaxis.set_major_locator(mdates.MonthLocator(interval=2))
                     # rotate the x-axis labels for better readability
@@ -383,7 +399,7 @@ def lake_timeseries_plot(forcing_df, scelist, lakefilename, styear, endyear, yra
 
 
 
-def lake_hydrology_timeseries_plot(forcing_df, scelist, lakefilename, styear, endyear, yrange=[1.5,3.5]):
+def lake_hydrology_timeseries_plot(forcing_df, scelist, lakefilename, styear, endyear, yrange=[0,3]):
     """_summary_
     this function will make a time series plot for the lake depth from each scenario
     it will do the following:
@@ -410,16 +426,12 @@ def lake_hydrology_timeseries_plot(forcing_df, scelist, lakefilename, styear, en
 
     for year in years:
         # list the components you need to plot
-        plotlist = [' OUT_RUNOFF',
-                    ' OUT_BASEFLOW',
-                    ' OUT_LAKE_DEPTH',
-                    ' LAKE_DYNAMICS',
-                    ' OUT_LAKE_RO_IN',
-                    ' OUT_LAKE_BF_IN',
-                    ' OUT_LAKE_BF_OUT',
-                    ' OUT_LAKE_CHAN_OUT',
-                    ' OUT_LAKE_EVAP',
-                    ' OUT_LAKE_RCHRG']
+        plotlist = ['OUT_RUNOFF',
+                    'OUT_BASEFLOW',
+                    'OUT_LAKE_DEPTH',
+                    'OUT_LAKE_VOLUME',
+                    'OUT_LAKE_EVAP',
+                    ]
         
         for scenario in scelist:
             # make the subplots for the integrated lake depth time series
@@ -434,15 +446,16 @@ def lake_hydrology_timeseries_plot(forcing_df, scelist, lakefilename, styear, en
             
             # read the lake file and get the lake depth values
             flines = read_lake(scenario, lakefilename, styear, endyear)
-            flines_year = flines.loc[flines['DATE'].dt.year == year]
+            lakes_year = flines.loc[flines['DATE'].dt.year == year]
             # read the fluxes_ file and get outflow and baseflow values
             flines = read_flux(scenario, lakefilename, styear, endyear)
             fluxes_year = flines.loc[flines['DATE'].dt.year == year]
             # claculate the lake dynamics
-            fluxes_year[' LAKE_DYNAMICS'] = fluxes_year[' OUT_LAKE_RO_IN'] + fluxes_year[' OUT_LAKE_BF_IN'] - fluxes_year[' OUT_LAKE_BF_OUT'] + fluxes_year[' OUT_LAKE_CHAN_IN']- fluxes_year[' OUT_LAKE_CHAN_OUT'] - fluxes_year[' OUT_LAKE_EVAP'] - fluxes_year[' OUT_LAKE_RCHRG']
-            # merge forcing_df_year, flines_year and fluxes_year using the 'DATE' column
-            flines_year = pd.merge(forcing_df_year, flines_year, on='DATE', how='left')
+            fluxes_year[' LAKE_DYNAMICS'] = fluxes_year['OUT_LAKE_RO_IN'] + fluxes_year['OUT_LAKE_BF_IN'] - fluxes_year['OUT_LAKE_BF_OUT'] + fluxes_year['OUT_LAKE_CHAN_IN']- fluxes_year['OUT_LAKE_CHAN_OUT'] - fluxes_year['OUT_LAKE_EVAP'] - fluxes_year['OUT_LAKE_RCHRG']
+            # merge forcing_df_year, lakes_year, fluxes_year and fluxes_year using the 'DATE' column
+            flines_year = pd.merge(forcing_df_year, lakes_year, on='DATE', how='left')
             flines_year = pd.merge(flines_year, fluxes_year, on='DATE', how='left')
+            # print (flines_year.columns)
 
             for i in range(len(plotlist)):
                 
@@ -461,7 +474,7 @@ def lake_hydrology_timeseries_plot(forcing_df, scelist, lakefilename, styear, en
                 # plot the values in the subplots
                 flines_year.plot(x='DATE', y=plotlist[i], ax=axs[i+1], zorder=2, linewidth=1, color=lncolor(plotlist[i]), label=scenario.replace('OUTPUTS_', ''))
                 axs[i+1].set_ylabel(plotlist[i].replace('OUT_','')+'\n(mm)', color=lncolor(plotlist[i]))
-                if plotlist[i] == ' OUT_LAKE_DEPTH':
+                if plotlist[i] == 'OUT_LAKE_DEPTH':
                     axs[i+1].set_ylim(yrange)
                     axs[i+1].set_ylabel('Lake Depth (m)', color='black')
 
@@ -648,7 +661,7 @@ def set_map(default_scenario, target):
 
 
 
-def read_forcing(lakefilename, styear, endyear, default_scenario):
+def read_forcing(CONFIG, lakefilename, styear, endyear, default_scenario, default_global):
     """_summary_
     this function will read the forcing file for the given lakefilename
     it will do the following:
@@ -656,6 +669,7 @@ def read_forcing(lakefilename, styear, endyear, default_scenario):
     2. return the forcing dataframe
 
     Args:
+        CONFIG (dict): configuration dictionary containing directory paths and other settings.
         lakefilename (str): name of the lake file to be analyzed usually it starts with "LAKE_" and coordinates of the grid comes after the prefix.
         styear (int): starting year for the analysis. Defaults to model simulation.
         endyear (int): ending year for the analysis. Defaults to model simulation.
@@ -664,10 +678,10 @@ def read_forcing(lakefilename, styear, endyear, default_scenario):
     Returns:
         forcing (dataframe): dataframe of the forcing file
     """
-    print('\n\n>>> Reading forcing data for the analysis for the Grid: '+lakefilename[5:])
+    print('\n\n>>> Reading forcing data for the analysis for the Grid: '+lakefilename)
     
     # get the forcing file by changing lakefile 'LAKE' to 'data' from directory '../FORCINGS'
-    forcingfile = os.path.join('../', 'FORCINGS', lakefilename.replace('LAKE', 'data'))
+    forcingfile = os.path.join('../', CONFIG.DIR['forcing'], f'{CONFIG.DIR["forcing_prefix"]}_{lakefilename}')
     print ('    ... Reading forcing file: '+forcingfile)
     
     # read the forcingfile, file has no header, delimiter is space
@@ -676,7 +690,7 @@ def read_forcing(lakefilename, styear, endyear, default_scenario):
         # set the header name as ['PRECIP', 'MINTEMP', ''MAXTEMP, 'WINDSPEED']
         forcing_df.columns = ['PRECIP', 'MINTEMP', 'MAXTEMP', 'WINDSPEED']
     
-    with open(f'../GLOBALFILES/global_{default_scenario}.txt', 'r') as f:
+    with open(f'../GLOBALFILES/{default_global}', 'r') as f:
         global_lines = f.readlines()
         # find the forcing data info
         '''
@@ -724,10 +738,10 @@ def read_lake(scenario, lakefilename, styear, endyear):
         # read the lakefile, this file is plain text file. the delimiter is tab, line 6 is the header
         flines = pd.read_csv(f, delimiter='\t', header=5)
         flines.dropna(inplace=True)
-        # get the YEAR, MONTH, DAY, OUT_LAKE_DEPTH values
-        '''
-        Index(['# YEAR', 'MONTH', 'DAY', 'OUT_LAKE_ICE_FRACT', ' OUT_LAKE_DEPTH', ' OUT_LAKE_SURF_AREA', ' OUT_LAKE_VOLUME'])
-        '''
+
+        # make column names have no white spaces
+        flines.columns = flines.columns.str.strip()
+
         # make date column from # YEAR, MONTH, DAY columns
         flines['DATE'] = pd.to_datetime(flines['# YEAR'].astype(str) + '-' + flines['MONTH'].astype(str) + '-' + flines['DAY'].astype(str))
         # filter the flines for the given years
@@ -757,10 +771,10 @@ def read_flux(scenario, lakefilename, styear, endyear):
         # read the lakefile, this file is plain text file. the delimiter is tab, line 6 is the header
         flines = pd.read_csv(f, delimiter='\t', header=5)
         flines.dropna(inplace=True)
-        # get the YEAR, MONTH, DAY, OUT_LAKE_DEPTH values
-        '''
-        Index(['# YEAR', 'MONTH', 'DAY', 'OUT_PREC', ' OUT_RUNOFF', ' OUT_BASEFLOW', ' OUT_DRAINFLOW', ' OUT_LAKE_BF_OUT', ' OUT_LAKE_RO_IN', ' OUT_SWE', ' OUT_EVAP', ' OUT_PET_H2OSURF', ' OUT_SOIL_MOIST_0', ' OUT_SOIL_MOIST_1', ' OUT_SOIL_MOIST_2', ' OUT_SOIL_MOIST_3', ' OUT_SOIL_MOIST_4', ' OUT_SOIL_MOIST_5'])
-        '''
+        
+        # make column names have no white spaces
+        flines.columns = flines.columns.str.strip()
+
         # make date column from # YEAR, MONTH, DAY columns
         flines['DATE'] = pd.to_datetime(flines['# YEAR'].astype(str) + '-' + flines['MONTH'].astype(str) + '-' + flines['DAY'].astype(str))
         # filter the flines for the given years

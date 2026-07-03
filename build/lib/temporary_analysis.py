@@ -31,12 +31,11 @@ def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, 
 
 styear = 1985
 endyear = 2001
-scelist = ['OUTPUTS_Pond', 'OUTPUTS_1b', 'OUTPUTS_1c', 'OUTPUTS_2b', 'OUTPUTS_2c', 'OUTPUTS_3b', 'OUTPUTS_3c']
+scelist = ['OUTPUTS_Pond', 'OUTPUTS_1b', 'OUTPUTS_1c', 'OUTPUTS_2b', 'OUTPUTS_2c']
 # scelist = ['OUTPUTS_2c', 'OUTPUTS_3b', 'OUTPUTS_3c']
 
-print(scelist, '\n')
+os.chdir('./SCENARIOS')
 for scenario in scelist:
-    print (scenario)
     if scenario in os.listdir():
         lakefilenames = os.listdir(os.path.join('./', scenario))
         lakefilenames = [name for name in lakefilenames if name.startswith('LAKE_')]
@@ -46,7 +45,10 @@ for scenario in scelist:
         countzero = 0
         filecount = 0
         for lakefilename in lakefilenames:
-            flines = pal.read_lake(scenario, lakefilename, styear, endyear)
+            try:
+                flines = pal.read_lake(scenario, lakefilename, styear, endyear)
+            except Exception as e:
+                print(f"Error reading {lakefilename} in {scenario}:\n{e}")
             # count how many values are smaller than 0 in the ' OUT_LAKE_DEPTH' column
             countzerotemp = (flines[' OUT_LAKE_DEPTH'] <= 0).sum()
             # print column names of flines

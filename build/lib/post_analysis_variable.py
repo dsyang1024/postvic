@@ -13,10 +13,13 @@ intro_block = '''
   USAGE: python post_analysis.py [options]=[arguments]
   
   For the detailed folder structure, please refer three command files below:
+      ... ./INPUTS/build_inputfiles.py
+      ... ./INPUTS/build_inputfiles_functions.py
+          to build the input files for the VIC model for different scenarios
+
       ... ./run_vic_commands.csh
       ... ./Submit_VIC_Runs.csh
-      ... ./make_scenarios.py
-  in addition, water withdrawal file 'withdrawals.txt' in the [INPUTS] folder. with build scripts in Python.
+          to run the VIC model for different scenarios using the built input files
   
   The directory structure is as follows ============================================================================
   
@@ -24,7 +27,7 @@ intro_block = '''
           /FORCINGS
           /GLOBALFILES
           /INPUTS
-              Ⳑ withdrawals.txt
+              Ⳑ build_inputfiles.py
                 ...
           /OUTPUTS
           /OUTPUTS_ROUTED
@@ -37,8 +40,7 @@ intro_block = '''
                 ...
           ./run_vic_commands.csh
           ./Submit_VIC_Runs.csh
-          ./make_scenarios.py
-          ./scenarios.csv
+          ./post_analysis.py
   ==================================================================================================================
           
   There are variables you can use when using this script:
@@ -67,13 +69,22 @@ intro_block = '''
       -c          : check the simulation results from each of the scenarios from the error and out messages
                     made by the cluster SLURM using the ../Submit_VIC_Runs.csh file
                     <this function will be merged to the diagnostic mode in the future>
-      -v          : validate the routed discharge with the observed data in the OBSERVED folder
-                    (this function will run sim_vali function in the post_analysis_route.py script)
       -m          : map the lake variable for the lake grid in each scenario (this will turn on the lake flag)
                     if this option is on, only map function will be work
-      -d          : diagnostic mode for the lake analysis (default: off)
-                    this will run the diagnosis functions in the post_analysis_diagnosis.py script
-                    this diagonostic mode is for the lake water balance diagnosis only
+  
+  <Diagnostic mode arguments>
+      -v          : validate the routed discharge with the observed data in the OBSERVED folder
+                    (this function will run sim_vali function in the post_analysis_route.py script)
+                    -t= option can be used to set the time of interest for the validation
+      -stats=      : statistic mode for the lake analysis (default: off)
+                    this will run the statistics functions in the post_analysis_diagnosis.py script
+                    scenario name and time scale should be given
+                    example usage: -stats=No_Pond/V (No_Pond scenario, annual average)
+                                   -stats=With_Pond/M (With_Pond scenario, monthly)
+                    time scale options: V (Annual Average), A (Annual), S (Seasonal), M (Monthly),
+                                        W (Weekly), D (Daily), P (Period)
+      -one       : run one grid only for testing variable (this is for the quick testing mode only)
+                   this mode will run the first grid from the scenario folder
   
   
   * route and lake flags are independent to each other and must be specified separately.
@@ -81,6 +92,11 @@ intro_block = '''
     to read the forcing and set the default analysis period.
   * all the grid based analysis will be done in the lake analysis.
   
+  
+  created by DK @ 2025
+'''
+
+'''
   i.e. post_analysis.py -v -t=2006-2015
        will do routed discharge validation with the observed data in the 'OBSERVED' folder
        from 2006 to 2015 for the default route file name set in post_analysis.py
@@ -103,54 +119,76 @@ intro_block = '''
        will do routed discharge analysis without refreshing results folder for the default route file name in
        post_analysis.py script from 2006 to 2015 for all scenarios. In addition, it will map the mean annual runoff
        for the lake grid in each scenario.
-  
-  created by DK @ 2025
 '''
 
 
-def variable_reader(variables, given_routefilenames, soilfilename, given_lakefilenames, default_scenario):
-
+def variable_reader(variables, soilfilename):
+    # print ('variables:', variables)
     variables.remove('./post_analysis.py')
     """
     check the flags for the analysis
     """
     help_check(variables)
-
-    if '-c' in variables:
-        sim_checker()
-
+    
+    CONFIG = get_config()
+    
+    default_scenario = CONFIG.SCE['default']
 
     refresher = refresher_check(variables)
 
     route_flag, lake_flag = analysis_flag(variables)
-
-    toi_flag, toi = timeofinterest_check(variables, default_scenario)
-
-    ts = timestep_check(variables, default_scenario)
-
-    growing_season = growing_check(variables)
     
-    route_flag, vali_flag = vali_check(variables, default_scenario, route_flag)
+    # if any variable in the variables has '-M=' in it, then it will be used as the mode of the analysis
+    map_flag, target, vali_flag = False, CONFIG.MAP['target'], False
+    
+    if any(i.startswith('-M=') for i in variables):
+        mode = get_mode(variables)
+        
+        if mode == 'C':
+            print ('• Analysis mode: Simulation checker\n')
+            # sim_checker()
+            sys.exit()
+            
+        elif mode == 'S':
+            print ('• Analysis mode: Stats\n')
+            # initialize the diagnostic mode
+            pad.run_diag(CONFIG)
+            sys.exit()
+            
+        elif mode == 'V':
+            print ('• Analysis mode: Validation\n')
+            vali_flag = True
+            print (f'• Vali flag    : {vali_flag}')
+            route_flag = True
+            
+        elif mode == 'M':
+            print ('• Analysis mode: Mapping\n')
+            map_flag, lake_flag, target = map_flag_check(CONFIG, True, lake_flag)
+            
+        else:
+            print (f'• Analysis mode: {mode} is not available.\n  Check helper with -h option.\n')
+            map_flag = False
 
-    map_flag, lake_flag = map_flag_check(variables, lake_flag)
 
-    target = target_map(variables)
+    toi_flag, toi = timeofinterest_check(CONFIG, variables, default_scenario)
 
+    ts, default_global = timestep_check(CONFIG, default_scenario)
+
+    growing_season = CONFIG.TOI['growing_season']
+    
     flowtype = flowtype_checker(variables)
     
-    scelist = get_scenarios(default_scenario, vali_flag)
-    
-
-    print()
-    routefilenames = route_variable_check(variables, route_flag, given_routefilenames)
+    scelist = get_scenarios(CONFIG, default_scenario, vali_flag)
     
     print()
-    lakefilenames = lake_variable_check(variables, lake_flag, soilfilename, given_lakefilenames)
+    routefilenames = get_route_filenames(CONFIG)
+    
+    print()
+    lakefilenames = get_lake_filenames(CONFIG)
+    
 
-    # check the validation flag
+    return CONFIG, refresher, route_flag, lake_flag, routefilenames, lakefilenames, toi_flag, toi, growing_season, scelist, ts, map_flag, target, flowtype, default_scenario, default_global
 
-
-    return refresher, route_flag, lake_flag, routefilenames, lakefilenames, toi_flag, toi, growing_season, scelist, ts, map_flag, target, flowtype
 
 
 def help_check(variables):
@@ -161,6 +199,42 @@ def help_check(variables):
         sys.exit()
     else:
         print('-h, help variables will provide the introduction to use this script.\n')
+
+
+def get_config(file='../VIC_config.csv'):
+    """_summary_
+
+    Args:
+        file (str, optional): _file path of the config file_. Defaults to 'VIC_config.csv'.
+
+    Returns:
+        _dict_: _dictionary of the config values_
+    """
+    from post_analysis_variable_importer import Config
+    CONFIG = Config(file)
+    # print ('DIR:', CONFIG.DIR)
+    # print ('SCE:', CONFIG.SCE)
+    # print ('TOI:', CONFIG.TOI)
+    # print ('ROUTE:', CONFIG.ROUTE)
+    # print ('MAP:', CONFIG.MAP)
+    # print ('STATS:', CONFIG.STATS)
+    return CONFIG
+
+
+def get_mode(variables):
+    """_summary_
+        this function will find the mode of the analysis based on the variable '-M='
+        the Mode this tool provide is following:
+        1. simulation checker (-M=C)
+        2. diagnosis (-M=D)
+        3. mapping (-M=M)
+        4. stats (-M=S)
+    Args:
+        variables (_list_): _variables given through CLI_
+    """
+    mode = [i for i in variables if i.startswith('-M=')][0]
+    mode = mode.split('=')[1]
+    return mode
 
 
 
@@ -200,25 +274,17 @@ def refresher_check(variables):
     return refresher
 
 
-def timestep_check(variables, default_scenario):
+def timestep_check(CONFIG, default_scenario):
+    global_dir = f'../{CONFIG.DIR["global"]}'
+    default_global = CONFIG.DIR['global_reference']
     # check the timestep flag
-    # if any variable in the variables startswith 'ts=', then it will be used
-    ts = any(i.startswith('ts=') for i in variables)
-    if ts == True:
-        ts = [i for i in variables if i.startswith('ts=')][0]
-        ts = int(ts.split('=')[1])
-    else:
-        with open(f'../GLOBALFILES/global_{default_scenario}.txt', 'r') as f:
-            global_lines = f.readlines()
-            for i in global_lines:
-                if i.startswith('OUT_STEP'):
-                    ts = int(i.split()[1])
+    ts = CONFIG.TOI['timestep']
     if ts < 24:
         print(f'• Timestep     : {ts} Hours')
     if ts == 24:
         print(f'• Timestep     : Daily')
 
-    return ts
+    return ts, default_global
 
 
 def analysis_flag(variables):
@@ -244,85 +310,33 @@ def analysis_flag(variables):
     return route_flag, lake_flag
 
 
-def route_variable_check(variables, route_flag, given_routefilenames):
-    """
-    check the file names if they are given
-    """
-    if route_flag == True:
-        routefilenames = [i for i in variables if '.txt' in i]
-        if routefilenames == []:
-            print ('Route file name is not given in the arguments. Dafault file name in the post_analysis will be used.')
-            routefilenames = given_routefilenames
-            for routefilename in routefilenames:
-                print ('   ... '+routefilename)
-        else:
-            print ('Route file name is given as:')
-            for routefilename in routefilenames:
-                print ('   ... '+routefilename)
-    else:
-        routefilenames = given_routefilenames
-
+def get_route_filenames(CONFIG):
+    # if ROUTE has multiple keys with 'name#', then it will be used as the route file names for the analysis
+    if any(key.startswith('name') for key in CONFIG.ROUTE.keys()):
+        routefilenames = [CONFIG.ROUTE[key] for key in CONFIG.ROUTE.keys() if key.startswith('name')]
+    print ('• Route file   :')
+    # print each route file name with 15 spaces in front of it
+    for routefilename in routefilenames:
+        print ('                 '+routefilename)
     return routefilenames
 
-
-def lake_variable_check(variables, lake_flag, soilfilename, given_lakefilenames):
-    """
-    check the file names if they are given
-    possible options are:
-    l=all
-    l=89999,87777
-    this function will find the grid number from the soil file and match with the coordinates to read the file from the outputs folder
-    """
-
-    # read the soil file to get the grid numbers
-    with open(soilfilename, 'r') as f:
-        soil_lines = f.readlines()
-        # find the grid numbers and put them in a dictionary gridnumber: gridcoord
-        grid_dic = {}
-        for line in soil_lines:
-            gridnumber = line.split()[1]
-            gridcoord = '_'.join(line.split()[2:4])
-            grid_dic[gridnumber] = gridcoord
-                
-
-    if lake_flag == True:
-        lakefilenames = [i for i in variables if i.startswith('l=')]
-        if lakefilenames == []:
-            lakefilenames = given_lakefilenames
-            print ('>>> Lake: File name(s) are not given in the arguments.')
-            print (f'          Dafault grid {given_lakefilenames} in the post_analysis.py will be analyzed.')
-            for i in range(len(lakefilenames)):
-                    # check if the grid number is in the dictionary
-                    if lakefilenames[i] in grid_dic.keys():
-                        lakefilenames[i] = 'LAKE_' + grid_dic[lakefilenames[i]]
-            for lakefilename in lakefilenames:
-                gridcode = dict((v,k) for k,v in grid_dic.items())
-                print (f'   ... {lakefilename} ({gridcode[lakefilename[5:]]})')
-        else:
-            if lakefilenames == ['l=all']:
-                print ('>>> Lake: All the grids with the lake will be analyzed.')
-            elif 'l=' in lakefilenames[0]:
-                print ('>>> Lake: Lake file name is given in the arguments as:')
-                lakefilenames = lakefilenames[0][2:].split(',')
-                for i in range(len(lakefilenames)):
-                    # check if the grid number is in the dictionary
-                    if lakefilenames[i] in grid_dic.keys():
-                        lakefilenames[i] = 'LAKE_' + grid_dic[lakefilenames[i]]
-                for lakefilename in lakefilenames:
-                    gridcode = dict((v,k) for k,v in grid_dic.items())
-                    print (f'   ... {lakefilename} ({gridcode[lakefilename[5:]]})')
-    else:
-        lakefilenames = []
-
+def get_lake_filenames(CONFIG):
+    # if LAKE has multiple keys with 'name#', then it will be used as the lake file names for the analysis
+    if any(key.startswith('name') for key in CONFIG.LAKE.keys()):
+        lakefilenames = [str(CONFIG.LAKE[key]) for key in CONFIG.LAKE.keys() if key.startswith('name')]
+    print ('• Lake file    :')
+    # print each lake file name with 15 spaces in front of it
+    for lakefilename in lakefilenames:
+        print ('                 '+str(lakefilename))
     return lakefilenames
 
 
-def timeofinterest_check(variables, default_scenario):
+def timeofinterest_check(CONFIG, variables, default_scenario):
     """
     check the time of interest for the analysis
     """
-
-    with open(f'../GLOBALFILES/global_{default_scenario}.txt', 'r') as f:
+    global_file = f'../{CONFIG.DIR["global"]}/{CONFIG.DIR["global_reference"]}'
+    with open(global_file, 'r') as f:
         global_lines = f.readlines()
         # find the forcing data info
         '''
@@ -342,17 +356,15 @@ def timeofinterest_check(variables, default_scenario):
                 styear_default = styear + skipyear
             if 'ENDYEAR' in line:
                 endyear_default = int(line.split()[1])
-        toi_default = [styear_default, endyear_default]
-
-
-    toi = [variable for variable in variables if '-t=' in variable]
+        toi_default = [styear_default, endyear_default]    
     
      # check the time of interest flag
-    if toi != []:
+    if CONFIG.TOI['from'] is not '' and CONFIG.TOI['to'] is not '':
         toi_flag = True
-        toi = [i for i in variables if '-t=' in i][0]
-        toi = toi.split('=')[1]
-        toi = [int(toi[:4]), int(toi[5:])]
+        toi = [CONFIG.TOI['from'], CONFIG.TOI['to']]
+        # toi = [i for i in variables if '-t=' in i][0]
+        # toi = toi.split('=')[1]
+        # toi = [int(toi[:4]), int(toi[5:])]
         if toi[0] >= toi_default[0] and toi[1] <= toi_default[1]:
             print (f'• Time flag    : {toi_flag} ({toi[0]}-{toi[1]})')
         else:
@@ -362,63 +374,42 @@ def timeofinterest_check(variables, default_scenario):
     else:
         toi_flag = False
         toi = copy.deepcopy(toi_default)
-        print (f'Time flag    : {toi_flag} ({toi[0]}-{toi[1]})')
+        print (f'• Time flag    : {toi_flag} ({toi[0]}-{toi[1]})')
 
     return toi_flag, toi
 
 
-def growing_check(variables):
-    """
-    check the growing season flag
-    """
-    if '-g' in variables:
-        growing_season = True
-    else:
-        growing_season = False
-
-    print(f'• Growing flag : {growing_season} (Deactivated now, use in the script)')
-
-    return growing_season
-
-
-def vali_check(variables, default_scenario, route_flag):
-    # check the validation flag
-    if '-v' in variables:
-        variables.remove('-v')
-        vali_flag = True
-        route_flag = True
-        # set the route flag to True if validation is on
-        route_flag = True
-        print('• Validation   : True')
-    else:
-        vali_flag = False
-        route_flag = route_flag
-
-    return route_flag, vali_flag
-
-
-def get_scenarios(default_scenario, vali_flag):
+def get_scenarios(CONFIG, default_scenario, vali_flag):
     """_summary_
     this function will automatically get the list of scenarios in the current 'SCENARIOS' directory
     Returns:
         scelist (list): this is the list of scenarios in the current directory in string format
     """
+    print('\n• List of scenarios in the current directory')
     if vali_flag == True:
         # if validation flag is on, then only the default scenario will be used
         scelist = [default_scenario]
     else:
-        # Going to print the list of output folders in the current directory
-        # output folders are usually named as 'output_1', 'output_2', etc.
-        # so we can use this to get the list of output folders
-        scelist = [f for f in os.listdir('./') if os.path.isdir(os.path.join('./', f))]
-        # if 'ROUTED' in list component, then remove it
-        scelist = [f for f in scelist if 'ROUTED' not in f]
-        scelist = [f[8:] for f in scelist if 'OUTPUTS' in f]
-        # sort the list
-        scelist.sort()
-        # print each of the folders in each line using for loop
-    print ('\n• List of scenarios in the current directory')
-        
+        if CONFIG.SCE['analysis'] == 'all':
+            # Going to print the list of output folders in the current directory
+            # output folders are usually named as 'output_1', 'output_2', etc.
+            # so we can use this to get the list of output folders
+            scelist = [f for f in os.listdir('./') if os.path.isdir(os.path.join('./', f))]
+            # if 'ROUTED' in list component, then remove it
+            scelist = [f for f in scelist if 'ROUTED' not in f]
+            scelist = [f[8:] for f in scelist if 'OUTPUTS' in f]
+            # sort the list
+            scelist.sort()
+            # print each of the folders in each line using for loop
+            # if ROUTE has multiple keys with 'name#', then it will be used as the route file names for the analysis
+        elif '/' in CONFIG.SCE['analysis']:
+            scelist = CONFIG.SCE['analysis'].split('/')
+            scelist = [f for f in scelist if f in scelist]
+        else:
+            print(f'   ... No scenario is selected for the analysis based on the config file: {CONFIG.SCE["analysis"]}')
+            print(f'       check the config file and make sure the scenario names are correct.')
+            scelist = []        
+
     if default_scenario in scelist:
         # get the default scenario to the first position and push everything else to the right
         scelist.remove(default_scenario)
@@ -426,7 +417,6 @@ def get_scenarios(default_scenario, vali_flag):
         print('   ... ', end='| ')
         for i in range(len(scelist)):
             print(scelist[i]+'*', end=' | ') if scelist[i] == default_scenario else print(scelist[i], end=' | ')
-        # print(*scelist, sep=' | ', end=' |\n')
         print(f'\n   ... Total {len(scelist)} scenarios; (* = default scenario)')
         
     else:
@@ -435,31 +425,12 @@ def get_scenarios(default_scenario, vali_flag):
     return scelist
 
 
-def map_flag_check(variables, lake_flag):
+def map_flag_check(CONFIG, map_flag, lake_flag):
     # check the map flag
-    if '-m' in variables:
-        map_flag = True
-        lake_flag = True
-    else:
-        map_flag = False
-        lake_flag = lake_flag
+    lake_flag = True
+    target = CONFIG.MAP['target']
 
-    print(f'• Map flag     : {map_flag}')
-
-    return map_flag, lake_flag
-
-
-def target_map(variables):
-    # check the target variable for the lake mapping
-    target = [i for i in variables if i.startswith('-target=')]
-    if target != []:
-        target = target[0].split('=')[1]
-        print(f'• Map target   : {target}')
-    else:
-        target = 'veg_frac'
-        print(f'• Map target   : {target}')
-
-    return target
+    return map_flag, lake_flag, target
 
 
 def flowtype_checker(variables):
@@ -539,7 +510,9 @@ def sim_checker():
     sys.exit()
 
 
-
-
+def init_diag_mode(variables):
+    diag_mode = [i for i in variables if i.startswith('-d=')][0]
+    # initialize the diagnostic mode
+    pad.receive_var(diag_mode)
 
 # end of the script
