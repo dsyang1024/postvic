@@ -1,0 +1,199 @@
+########################################################################
+# VIC Model Parameters - 4.1.x
+#######################################################################
+# $Id: global.param.sample,v 5.7.2.17 20././25 00:45:12 vicadmin Exp $
+#######################################################################
+# Simulation Parameters
+#######################################################################
+TIME_STEP           3 # model time step in hours (set to 24 if FULL_ENERGY = FALSE, set to < 24 if FULL_ENERGY = TRUE)
+SNOW_STEP           3 # time step in hours for which to solve the snow model (should = TIME_STEP if TIME_STEP < 24)
+STARTYEAR           1995 # year model simulation starts
+STARTMONTH          09 # month model simulation starts
+STARTDAY            30 # day model simulation starts
+STARTHOUR           00 # hour model simulation starts
+ENDYEAR             2006 # year model simulation ends
+ENDMONTH            09 # month model simulation ends
+ENDDAY              30 # day model simulation ends
+
+MIN_WIND_SPEED      0.1 # minimum allowable wind speed ./s
+MAX_SNOW_TEMP       0.25 # maximum temperature (C) at which snow can fall
+MIN_RAIN_TEMP       -0.25 # minimum temperature (C) at which rain can fall
+EQUAL_AREA          FALSE # TRUE = grid cells are from an equal-area projection; FALSE = grid cells are on a regular lat-lon grid
+
+FULL_ENERGY         TRUE # TRUE = calculate full energy balance; FALSE = compute water balance only
+CORRPREC            FALSE # TRUE = correct precipitation for gauge undercatch
+DIST_PRCP           FALSE # TRUE = use distributed precipitation
+PREC_EXPT           0.6 # exponent for use in distributed precipitation eqn (only used if DIST_PRCP is TRUE)
+
+CONTINUEONERROR     TRUE # TRUE = if simulation aborts on one grid cell, continue to next grid cell;
+TFALLBACK           TRUE # when energy balance fails to converge, use previous T value
+
+#######################################################################
+# Snow and Frozen Soil Simulation Options
+#######################################################################
+FROZEN_SOIL         TRUE # TRUE = calculate frozen soils
+QUICK_FLUX          FALSE # TRUE = use simplified ground heat flux method of Liang et al (1999); FALSE = use finite element method of Cherkauer et al (1999)
+NODES               15 # number of soil thermal nodes
+QUICK_SOLVE         FALSE # TRUE = Use Liang et al., 1999 formulation for iteration, but explicit finite difference method for final step.
+NO_FLUX             FALSE # TRUE = use no flux lower boundary for ground heat flux computation; FALSE = use constant flux lower boundary condition. If NO_FLUX = TRUE, QUICK_FLUX MUST = FALSE
+IMPLICIT            FALSE # TRUE = use implicit solution for soil heat flux equation of Cherkauer et al (1999), otherwise uses original explicit solution.
+EXP_TRANS           TRUE # TRUE = exponentially distributes the thermal nodes in the Cherkauer et al. (1999) finite difference algorithm, otherwise uses linear distribution
+GRND_FLUX_TYPE      GF_FULL # Options for ground flux:
+			# GF_406 = use (flawed) formulas for ground flux, deltaH, and fusion from VIC 4.0.6 and earlier;
+			# GF_410 = use formulas from VIC 4.1.0 (ground flux is correct, but deltaH and fusion ignore surf_atten);
+			# GF_FULL = use correct ground flux formula from VIC 4.1.0 and also take surf_atten into account in deltaH and fusion
+			# Default 	= GF_FULL
+
+SNOW_ALBEDO         SUN1999 # USACE = use traditional VIC algorithm based on US Army Corps of Engineers empirical snow albedo decay curves, using hard-coded dates for transitions from snow accumulation to melting; SUN1999 = use algorithm of Sun et al 1999, in which albedo decay depends on snow cold content (more appropriate for simulations outside the US).
+SNOW_DENSITY        DENS_SNTHRM # DENS_BRAS = use traditional VIC algorithm taken from Bras, 1990; DENS_SNTHRM = use algorithm taken from SNTHRM model.
+BLOWING             FALSE # TRUE = compute evaporative fluxes due to blowing snow
+AERO_RESIST_CANSNOW AR_406_FULL # Options for aerodynamic resistance in snow-filled canopy:
+			# AR_406 	= multiply by 10 for latent heat but do NOT multiply by 10 for sensible heat and do NOT apply stability correction (as in VIC 4.0.6); when no snow in canopy, use surface aero_resist for ET.
+			# AR_406_LS 	= multiply by 10 for latent heat AND sensible heat and do NOT apply stability correction; when no snow in canopy, use surface aero_resist for ET.
+			# AR_406_FULL 	= multiply by 10 for latent heat AND sensible heat and do NOT apply stability correction; additionally, always use overstory aero_resist for ET (as in 4.1.0).
+			# AR_410 	= apply stability correction but do NOT multiply by 10 (as in VIC 4.1.0); additionally, always use overstory aero_resist for ET (as in 4.1.0).
+			# AR_COMBO 	= multiply by 10 AND apply stability correction; additionally, always use overstory aero_resist for ET (as in 4.1.0).
+			# Default 	= AR_406_FULL
+
+#######################################################################
+# Lake Simulation Options
+#######################################################################
+RESOLUTION          0.0625 # Grid cell resolution (degrees if EQUAL_AREA is FALSE, km^2 if EQUAL_AREA is TRUE); ignored if LAKES is FALSE
+LAKES               ./LAKEFILES/C_set_1.asc # Lake parameter path/file
+MONTHLY_CONTROL     TRUE
+WITHDRAWAL          ./LAKEFILES/withdrawal_C_set_1.txt
+WITHDRAWAL_SRC      WITHDRAWAL_FROM_LAKE
+LAKE_PROFILE        TRUE # TRUE = User-specified depth-area parameters in lake parameter file; FALSE = VIC computes a parabolic depth-area profile
+
+#######################################################################
+# Land Surface Files and Parameters
+#######################################################################
+NLAYER              6 # number of soil layers
+SOIL                ./INPUTS/soil_set_1_sub_1.asc # Soil parameter pa./file
+ARC_SOIL            FALSE # TRUE = read soil parameters from A./INFO ASCII grids
+BASEFLOW            ARNO # ARNO = columns 5-8 are the standard VIC baseflow parameters; NIJSSEN2001 = columns 5-8 of soil file are baseflow parameters from Nijssen et al (2001)
+JULY_TAVG_SUPPLIED  FALSE # TRUE = final column of the soil parameter file will contain average July air temperature, for computing treeline; this will be ignored if COMPUTE_TREELINE is FALSE; FALSE = compute the treeline based on the average July air temperature of the forcings over the simulation period
+VEGPARAM            ./INPUTS/drained_veg_param.CONUS_MX.MOD_IGBP.LAI.asc
+VEGPARAM_LAI        TRUE
+LAI_SRC             LAI_FROM_VEGPARAM
+DRAINAGE            TRUE # subsurface tile driainage
+ROOT_ZONES          3 # Number of root zones (must match format of veg param file)
+VEGLIB              ./INPUTS/adjusted_veg_lib_purdue_17class.asc
+
+#######################################################################
+# Forcing Files and Parameters
+#
+#       All FORCING1 filenames are actually the pathname, and prefix
+#               for gridded data types: ex. DA./forcing_
+#               Latitude and longitude index suffix is added by VIC
+#
+#	There must be 1 FORCE_TYPE entry for each variable (column) in the forcing file
+#
+#	If FORCE_TYPE is BINARY, each FORCE_TYPE must be followed by:
+#			SIGN./UNSIGNED	SCALE_FACTOR
+#		For example (BINARY):
+#			FORCE_TYPE	PREC	UNSIGNED	40
+#		or (ASCII):
+#			FORCE_TYPE	PREC
+#######################################################################
+
+FORCING1            ./FORCINGS/data_ # Forcing file path and prefix, ending in "_"
+FORCE_FORMAT        ASCII # BINARY or ASCII
+FORCE_ENDIAN        LITTLE # LITTLE (./Linux) or BIG (SUN)
+N_TYPES             4 # Number of variables (columns)
+FORCE_TYPE          PREC
+FORCE_TYPE          TMIN
+FORCE_TYPE          TMAX
+FORCE_TYPE          WIND
+FORCE_DT            24 # Forcing time step length (hours)
+FORCEYEAR           1915 # Year of first forcing record
+FORCEMONTH          01 # Month of first forcing record
+FORCEDAY            01 # Day of first forcing record
+FORCEHOUR           00 # Hour of first forcing record
+GRID_DECIMAL        5 # Number of digits after decimal point in forcing file names
+WIND_H              10.0 # height of wind speed measurement (m)
+MEASURE_H           2.0 # height of humidity measurement (m)
+ALMA_INPUT          FALSE # TRUE = ALMA-compliant input variable units; FALSE = standard VIC units
+
+#######################################################################
+# Output Files and Parameters
+#######################################################################
+RESULT_DIR          ./SCENARIOS/OUTPUTS_C # Results directory path
+OUT_STEP            24 # Output interval (hours); if 0, OUT_STEP = TIME_STEP
+SKIPYEAR            5 # Number of years of output to omit from the output files
+COMPRESS            FALSE # TRUE = compress input and output files when done
+BINARY_OUTPUT       FALSE # TRUE = binary output files
+ALMA_OUTPUT         FALSE # TRUE = ALMA-format output files; FALSE = standard VIC units
+MOISTFRACT          TRUE # TRUE = output soil moisture as volumetric fraction; FALSE = standard VIC units (mm)
+PRT_HEADER          TRUE # TRUE = insert a header at the beginning of each output file; FALSE = no header
+PRT_SNOW_BAND       FALSE # TRUE = write a "snowband" output file, containing band-specific values of snow variables; NOTE: this is ignored if N_OUTFILES is specified below.
+
+#######################################################################
+#
+# Output File Contents
+#
+#
+# Format:
+#
+#   <n_outfiles> = number of output files
+#   <prefix>     = name of the output file, NOT including latitude
+#                  and longitude
+#   <nvars>      = number of variables in the output file
+#   <varname>    = name of the variable (this must be one of the
+#                  output variable names listed in vicNl_def.h.)
+#   <format>     = (for ascii output files) fprintf format string,
+#                  e.g.
+#                    %.4f = floating point with 4 decimal places
+#                    %.7e = scientific notation./ 7 decimal places
+#                    *    = use the default format for this variable
+#
+#   <format>, <type>, and <multiplier> are optional.  For a given
+#   variable, you can specify either NONE of these, or ALL of
+#   these.  If these are omitted, the default values will be used.
+#
+#   <type>       = (for binary output files) data type code.
+#                  Must be one of:
+#                    OUT_TYPE_DOUBLE = double-precision floating point
+#                    OUT_TYPE_FLOAT  = single-precision floating point
+#                    OUT_TYPE_INT    = integer
+#                    OUT_TYPE_USINT  = unsigned short integer
+#                    OUT_TYPE_SINT   = short integer
+#                    OUT_TYPE_CHAR   = char
+#                    *               = use the default type
+#   <multiplier> = (for binary output files) factor to multiply
+#                  the data by before writing, to increase precision.
+#                    *    = use the default multiplier for this variable
+#
+#######################################################################
+
+N_OUTFILES          1
+
+OUTFILE             gridout 28
+OUTVAR              OUT_PREC    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR          OUT_AIR_TEMP    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR            OUT_RUNOFF    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR          OUT_BASEFLOW    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR         OUT_DRAINFLOW    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR              OUT_EVAP    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR               OUT_SWE    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR       OUT_PET_H2OSURF    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR        OUT_SOIL_MOIST    %.4f    OUT_TYPE_FLOAT  1
+OUTVAR          OUT_SOIL_WET    %.4f    OUT_TYPE_FLOAT  1
+OUTVAR          OUT_SURFSTOR    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR          OUT_LAKE_ICE    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR    OUT_LAKE_ICE_FRACT    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR   OUT_LAKE_ICE_HEIGHT    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR     OUT_LAKE_ICE_TEMP    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR           OUT_IRR_DEF    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR        OUT_LAKE_DEPTH    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR    OUT_LAKE_SURF_AREA    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR       OUT_LAKE_VOLUME    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR        OUT_LAKE_MOIST    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR      OUT_LAKE_RCHRG_V    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR      OUT_LAKE_RO_IN_V    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR    OUT_LAKE_CHAN_IN_V    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR      OUT_LAKE_BF_IN_V    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR       OUT_LAKE_EVAP_V    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR     OUT_LAKE_BF_OUT_V    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR   OUT_LAKE_CHAN_OUT_V    %.4f    OUT_TYPE_FLOAT	1
+OUTVAR        OUT_SNOW_DEPTH    %.4f    OUT_TYPE_FLOAT	1

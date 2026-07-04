@@ -1,0 +1,13 @@
+LICENSE
+README.md
+setup.py
+postvic/__init__.py
+postvic.egg-info/PKG-INFO
+postvic.egg-info/SOURCES.txt
+postvic.egg-info/dependency_links.txt
+postvic.egg-info/top_level.txt
+postvic/modelinfo/__init__.py
+postvic/modelinfo/getmodeldir.py
+postvic/readfiles/__init__.py
+postvic/readfiles/read files.py
+test/testscript.py

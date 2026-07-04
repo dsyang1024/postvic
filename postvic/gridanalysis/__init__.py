@@ -1,0 +1,1 @@
+from postvic.gridanalysis.getfromglobal import *
