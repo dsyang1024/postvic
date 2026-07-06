@@ -8,7 +8,7 @@ import postvic as pv
 
 
 
-modelroot = r"C:\Users\dsyan\Documents\Github\postvic\test"
+modelroot = r"C:\Github\postvic\test"
 globaldir = 'GLOBALFILES'
 
 

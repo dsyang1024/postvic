@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: postvic
-Version: 0.2.0
+Version: 0.3.0
 Summary: Analysis tools for VIC simulation outputs
 Home-page: https://github.com/dsyang1024/postvic.git
 Author: DK Yang
@@ -8,6 +8,20 @@ Author-email: yang2309@purdue.edu
 License: GPL-3.0-only
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 # postvic
 This is an analysis tool for vic simulation
+
+
+
+gridanalysis:
+modelinfo:
+readfiles:
