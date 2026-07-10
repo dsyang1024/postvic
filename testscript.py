@@ -35,6 +35,15 @@ cellnumber = 83861 # in int format, not string format
 # Three return values will be used in the next function to read the output files.
 modelsettings, outputcoordi, prefix_dict = pv.gridanalysis.getfromglobal(modelroot, globalfile, cellnumber, modelsettingslist)
 
+"""
+# list of graphs you want to make, the first column is the variable name, the second column is the unit, and the third column is the graph type.
+gravic_list = [
+    ["OUT_RUNOFF", "D", "line"],
+    ["OUT_BASEFLOW", "D", "line"],
+    ["OUT_LAKE_VOLUME", "M", "BOX"]
+    ]
+gravic(gravic_list)
+"""
 
 # read the output file and return a dataframe with the variables you want to read.
 var = ['OUT_RUNOFF', 'OUT_BASEFLOW', 'OUT_LAKE_VOLUME'] # var can be string or list of strings.
