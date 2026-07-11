@@ -45,8 +45,8 @@ modelsettings, outputcoordi, prefix_dict = pv.gridanalysis.getfromglobal(modelro
 # list of graphs you want to make, the first column is the variable name, the second column is the unit, and the third column is the graph type.
 # mendatory
 gravic_list = [
-    ["OUT_RUNOFF", "D", "line"],
-    ["OUT_BASEFLOW", "D", "line"],
-    ["OUT_LAKE_VOLUME", "M", "BOX"]
+    ["OUT_RUNOFF", "D", "L"],
+    ["OUT_BASEFLOW", "D", "L"],
+    ["OUT_DRAINFLOW", "D", "L"]
     ]
 pv.gridanalysis.gravic(gravic_list, modelroot, modelsettings, outputcoordi, prefix_dict)
