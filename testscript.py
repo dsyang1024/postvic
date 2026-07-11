@@ -7,7 +7,7 @@ sys.path.insert (0, '../postvic')
 import postvic as pv
 
 
-
+# default variables
 # modelroot = r"C:\Github\postvic\test" #for laptop
 modelroot = r"C:\Users\dsyan\Documents\Github\postvic\test" # for home desktop
 globaldir = 'GLOBALFILES'
@@ -16,6 +16,7 @@ globaldir = 'GLOBALFILES'
 # first input is absolute path of the model root directory,
 # second input is the direcotry of the global files from the root directory
 # this function will bring all the model settings from the global files in the directory
+# mendatory
 modelsettingslist = pv.modelinfo.getmodelinfo(modelroot, globaldir)
 
 
@@ -23,13 +24,15 @@ modelsettingslist = pv.modelinfo.getmodelinfo(modelroot, globaldir)
 # second input is the modelsettingslist from the previous function
 # this function will check if the result directories exist, if not, it will remove the modelsettings from the list
 # if the result directories exist, it will check if the output files exist, if not, it will print a message and exit
+# optional
 pv.modelinfo.getmodeldirs(modelroot, modelsettingslist)
 
 
 
 
 # gridcell scale analysis, this function use the gridcell number given in the soil file listed in the global file
-# which global file your simulation used?
+#! the given global file must be in the modelsettingslist, otherwise it will print a message and exit
+# mendatory
 globalfile = 'global_A_set_1_sub_1.txt'
 cellnumber = 83861 # in int format, not string format
 
@@ -40,17 +43,10 @@ modelsettings, outputcoordi, prefix_dict = pv.gridanalysis.getfromglobal(modelro
 
 
 # list of graphs you want to make, the first column is the variable name, the second column is the unit, and the third column is the graph type.
+# mendatory
 gravic_list = [
     ["OUT_RUNOFF", "D", "line"],
     ["OUT_BASEFLOW", "D", "line"],
     ["OUT_LAKE_VOLUME", "M", "BOX"]
     ]
 pv.gridanalysis.gravic(gravic_list, modelroot, modelsettings, outputcoordi, prefix_dict)
-
-
-# what do you want to do?
-# make a line plot
-# make a box plot
-
-
-
