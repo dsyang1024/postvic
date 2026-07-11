@@ -1,6 +1,6 @@
 # test
 # call library in the postvic package folder
-import sys, os
+import sys
 
 
 sys.path.insert (0, '../postvic')
@@ -8,7 +8,8 @@ import postvic as pv
 
 
 
-modelroot = r"C:\Github\postvic\test"
+# modelroot = r"C:\Github\postvic\test" #for laptop
+modelroot = r"C:\Users\dsyan\Documents\Github\postvic\test" # for home desktop
 globaldir = 'GLOBALFILES'
 
 
@@ -25,6 +26,8 @@ modelsettingslist = pv.modelinfo.getmodelinfo(modelroot, globaldir)
 pv.modelinfo.getmodeldirs(modelroot, modelsettingslist)
 
 
+
+
 # gridcell scale analysis, this function use the gridcell number given in the soil file listed in the global file
 # which global file your simulation used?
 globalfile = 'global_A_set_1_sub_1.txt'
@@ -35,19 +38,15 @@ cellnumber = 83861 # in int format, not string format
 # Three return values will be used in the next function to read the output files.
 modelsettings, outputcoordi, prefix_dict = pv.gridanalysis.getfromglobal(modelroot, globalfile, cellnumber, modelsettingslist)
 
-"""
+
 # list of graphs you want to make, the first column is the variable name, the second column is the unit, and the third column is the graph type.
 gravic_list = [
     ["OUT_RUNOFF", "D", "line"],
     ["OUT_BASEFLOW", "D", "line"],
     ["OUT_LAKE_VOLUME", "M", "BOX"]
     ]
-gravic(gravic_list)
-"""
+pv.gridanalysis.gravic(gravic_list, modelroot, modelsettings, outputcoordi, prefix_dict)
 
-# read the output file and return a dataframe with the variables you want to read.
-var = ['OUT_RUNOFF', 'OUT_BASEFLOW', 'OUT_LAKE_VOLUME'] # var can be string or list of strings.
-output_df = pv.readfiles.readgrid(modelroot, modelsettings, outputcoordi, prefix_dict, var)
 
 # what do you want to do?
 # make a line plot
