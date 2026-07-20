@@ -8,8 +8,8 @@ import postvic as pv
 
 
 # default variables
-# modelroot = r"C:\Github\postvic\test" #for laptop
-modelroot = r"C:\Users\dsyan\Documents\Github\postvic\test" # for home desktop
+modelroot = r"C:\Github\postvic\test" #for laptop
+# modelroot = r"C:\Users\dsyan\Documents\Github\postvic\test" # for home desktop
 globaldir = 'GLOBALFILES'
 
 
